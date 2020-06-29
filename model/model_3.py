@@ -15,41 +15,20 @@ def clean_events(input_file):
     # ignore transactionid for now
     return df.drop('transactionid', axis=1)
 
-def build_feedback_matrix(df):
-    # convert timestamp to offset since first event to reduce magnitude of values
-    df.timestamp = df.timestamp - df.timestamp.min()
-    # convert event type to numerical value corresponding to frequency
-    event_frequency = df.event.value_counts().to_dict()
-    category_scores = {cat: 1 / (event_frequency[cat] / df.event.size)
-                       for cat in df.event.dtype.categories}
-    df['score'] = df.event.replace(category_scores)
-    # more recent events score higher
-    df['score'] = df.timestamp * df.score
-    fm = coo_matrix((df.score, (df.visitorid, df.itemid)),
-                    shape=(df.visitorid.size, df.itemid.size))
-    fm.sum_duplicates()
-    return fm
-
-def calculate_scores(index, fm):
-    x = fm.getrow(index).toarray()
-    result = []
-    for i in range(1, len(fm.row)):
-        y = fm.getrow(i).toarray().transpose()
-        result.append((x.dot(y), i))
-
-def make_category_file(input_file, output_file):
-    df = pd.read_csv(input_file)
+def extract_categories_from_properties(properties_file):
+    df = pd.read_csv(properties_file)
     cats = df[df.property == 'categoryid']
-    cats = cats.sort_values(by='timestamp').reset_index(drop=True)
-    cats.to_csv(output_file, index=False)
+    cats = cats.drop(['property'], axis=1)
+    cats = df.rename(columns={'value': 'category'})
+    return cats.sort_values(by='timestamp').reset_index(drop=True)
 
-def join_event_category(event_df, category_df):
+def join_events_to_categories(event_df, category_df):
     '''join event and category data, using timestamp to find
        the category that applied at the time of the event'''
     df = event_df.merge(category_df, on='itemid', how='left',
                         suffixes=('', '_cat'))
     # not all itemids have categories, so drop them
-    df = df[df.value.notna()]
+    df = df[df.category.notna()]
     df['tstamp_diff'] = df.timestamp - df.timestamp_cat
     # drop category changes from the future
     df = df[df.tstamp_diff < 0]
@@ -61,6 +40,5 @@ def join_event_category(event_df, category_df):
 
 if __name__ == '__main__':
     edf = clean_events('source_data/events.csv')
-    cdf = pd.read_csv('source_data/item_categories.csv')
-    df  = join_event_category(edf, cdf)
-    df  = df.drop(['property'], axis=1)
+    cdf = extract_categories_from_properties('source_data/item_properties.csv')
+    df  = join_events_to_categories(edf, cdf)
