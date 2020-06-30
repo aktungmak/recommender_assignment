@@ -46,6 +46,8 @@ def make_interaction_matrices(events_df):
                           shape=(n_visitors, n_items))
     test_im  = coo_matrix((test.score, (test.visitorid, test.itemid)),
                           shape=(n_visitors, n_items))
+    train_im.sum_duplicates()
+    test_im.sum_duplicates()
     return train_im, test_im
 
 def make_model(interaction_matrix):
@@ -54,13 +56,9 @@ def make_model(interaction_matrix):
     model.fit(interaction_matrix, epochs=1, num_threads=2)
     return model
 
-def measure_model(model, train_im, test_im):
-    print(1)
+def measure_model(model, test_im):
     test_auc  = auc_score(model, test_im, num_threads=4)
-    print(2)
-    train_auc = auc_score(model, train_im, num_threads=4)
-    print(3)
-    return train_auc.mean(), test_auc.mean()
+    return test_auc.mean()
 
 def recommendations_for_user(model, userid, itemids, count=100):
     recommendations = model.predict(userid, itemids)
@@ -72,6 +70,6 @@ if __name__ == '__main__':
     edf         = add_event_scoring(edf)
     train, test = make_interaction_matrices(edf)
     model       = make_model(train)
-    print(measure_model(model, train, test))
+    mean_auc    = measure_model(model, test)
 
 
