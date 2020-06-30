@@ -1,5 +1,6 @@
 from datetime import datetime
 from lightfm import LightFM
+from lightfm.evaluation import auc_score
 from scipy.sparse import coo_matrix
 import numpy as np
 import pandas as pd
@@ -17,10 +18,35 @@ def clean_events(input_file):
     # ignore transactionid for now
     return df.drop('transactionid', axis=1)
 
-def make_interaction_matrix(events_df):
-    data = np.ones(events_df.visitorid.size)
-    return coo_matrix((data, (events_df.visitorid, events_df.itemid)),
-                      shape=(events_df.visitorid.size, events_df.itemid.size))
+def add_event_scoring(events_df):
+    'convert event type to numerical value corresponding to event frequency'
+    event_frequency = events_df.event.value_counts().to_dict()
+    category_scores = {cat: 1 / (event_frequency[cat] / events_df.event.size)
+                       for cat in events_df.event.dtype.categories}
+    events_df['score'] = events_df.event.replace(category_scores)
+    return events_df
+
+def train_test_split(df, ratio=0.8):
+    split_point = int(df.shape[0] * ratio)
+    df_train    = df.iloc[0:split_point]
+    df_test     = df.iloc[split_point:]
+
+    df_test=df_test[(df_test['visitorid'].isin(df_train['visitorid']))&\
+                     (df_test['itemid'].isin(df_train['itemid']))]
+
+    return df_train, df_test
+
+def make_interaction_matrices(events_df):
+    train, test = train_test_split(events_df)
+
+    n_visitors = events_df.visitorid.size
+    n_items    = events_df.itemid.size
+
+    train_im = coo_matrix((train.score, (train.visitorid, train.itemid)),
+                          shape=(n_visitors, n_items))
+    test_im  = coo_matrix((test.score, (test.visitorid, test.itemid)),
+                          shape=(n_visitors, n_items))
+    return train_im, test_im
 
 def make_model(interaction_matrix):
     # use WARP since only positive interactions are present
@@ -28,13 +54,24 @@ def make_model(interaction_matrix):
     model.fit(interaction_matrix, epochs=1, num_threads=2)
     return model
 
-def recommendations_for_user(model, userid, itemidsi, count=100):
+def measure_model(model, train_im, test_im):
+    print(1)
+    test_auc  = auc_score(model, test_im, num_threads=4)
+    print(2)
+    train_auc = auc_score(model, train_im, num_threads=4)
+    print(3)
+    return train_auc.mean(), test_auc.mean()
+
+def recommendations_for_user(model, userid, itemids, count=100):
     recommendations = model.predict(userid, itemids)
     recommendations[::-1].sort()
     return recommendations[:count]
 
 if __name__ == '__main__':
-    edf = clean_events('source_data/events.csv')
-    im  = make_interaction_matrix(edf)
-    model = make_model(im)
+    edf         = clean_events('source_data/events.csv')
+    edf         = add_event_scoring(edf)
+    train, test = make_interaction_matrices(edf)
+    model       = make_model(train)
+    print(measure_model(model, train, test))
+
 
