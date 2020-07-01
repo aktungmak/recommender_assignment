@@ -81,7 +81,7 @@ The next approach was to use the library lightfm to extract the embeddings from 
 
 In this iteration, the scoring based on the relative frequency of the events described in iteration 1 was used again, but the weighting based on timestamp was skipped this time.
 
-I chose the "warp" loss function since there are only positive interactions in the data and this loss function performs well under those conditions.
+I chose the "warp" loss function since there are only positive interactions in the data and this loss function performs well under those conditions. Additionally, it focusus on optimising the results at the top of the recommendation list (Precision @ k) which is exactly the use case here, since we will only recommend the top 100 items.
 
 I left the hyperparameters at their defaults since I did not have enough knowledge to tune them meaningfully. Given more time, I would like to have used grid search in combination with cross-validation to identify which hyperparameters have a positive impact on the accuracy of the recommendations and also improve my own intuition.
 
@@ -93,13 +93,17 @@ The goal of the third iteration was to utilise the "categoryid" attributes of th
 Choice of metrics and justification 
 Since I am new to the area of recommender systems, I chose to use the evaluation functions supplied with the lightfm library to measure the accuracy of the models in iteration 2 and 3. Iteration 1 is ignored in this section, since it was unsuccessful.
 
-Specifically, I chose the ROC (receiver operating characteristic curve) as a measure of how well the model classifies a random recommendation against another. The ROC metric is the relation between the TPR (true positive rate) and FPR (false positive rate) which essentially compares how often the model guessed correctly against how often it guessed incorrectly.
+I selected two metrics for measuring the quality of the model: Precision @ k and ROC AUC.
+
+Precision @ k is a measure of the proportion of the top k items which are positively rated (that is, the fraction of relevant recommendations).
+
+ROC (receiver operating characteristic curve) is a measure of the probability that the model will rank a randomly chosen positive example higher than a randomly chosen negative example. The ROC metric is the relation between the TPR (true positive rate) and FPR (false positive rate) which essentially compares how often the model guessed correctly against how often it guessed incorrectly.
 
 The ROC is usually stated at a particular classification threshold. The AUC (area under the curve) on the other hand provides an aggregate measure of the ROC at all possible classification thresholds.
 
 The lightfm library provides the lightfm.evaluation.auc_score function which is able to calculate the score for us given a particular model.
 
-Unfortunately the performance of the AUC scoring functions was very poor, and it took an extremely long time to calculate the scores on the dataset (in excess of 2 hours). This meant that it was difficult to know exactly how 
+Unfortunately the performance of the AUC and Precision@k scoring functions was very poor on this dataset, and it took an extremely long time to calculate the scores on the dataset (in excess of 2 hours). This meant that it was difficult to know exactly how changes in the hyperparameters were having an effect.
 
 From a personal reflection point of view, I would say that this is an area where I need to improve my knowledge most, since I feel that there are some optimisations to make the measurements quicker and more useful, and additionally I can investigate alternative measures of the model quality.
 
