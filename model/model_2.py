@@ -77,16 +77,18 @@ def save_recommendations_csv(recommendations, filename):
     df = pd.DataFrame(recommendations)
     headers = ['visitorid'] + [f'item_{i}' for i in range(0, len(df.columns) - 1)]
     df.columns = headers
-    df.to_csv(filename)
+    df.to_csv(filename, index=False)
 
 if __name__ == '__main__':
     edf         = clean_events('source_data/events.csv')
     edf         = add_event_scoring(edf)
     train, test = make_interaction_matrices(edf)
     model       = make_model(train)
-    mean_auc    = measure_model(model, test)
-    print('test AUC:', mean_auc)
+  # mean_auc    = measure_model(model, test)
+  # print('test AUC:', mean_auc)
 
     visitorids  = get_recommendation_visitorids('source_data/predictions.csv')
     itemids     = edf.itemid.unique()
-    recs        = make_recommendations(model, visitorids[:10], itemids)
+    recs        = make_recommendations(model, visitorids, itemids)
+
+    save_recommendations_csv(recs, 'restapi/predictions.csv')
