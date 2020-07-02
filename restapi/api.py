@@ -1,6 +1,6 @@
 import csv
 import sys
-from bottle import route, run, template
+from bottle import route, run, template, abort
 
 @route('/recommendations/<visitorid>')
 def recommendations(visitorid):
