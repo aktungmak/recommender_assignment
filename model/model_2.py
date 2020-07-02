@@ -70,7 +70,6 @@ def make_recommendations(model, visitorids, itemids, count=100):
         scores = model.predict(visitorid, itemids)
         top_items = itemids[np.argsort(-scores)]
         recommendations.append([visitorid] + list(top_items[:count]))
-        print(f'progress: {i} of {len(visitorids)}', end='\r')
     return recommendations
 
 def save_recommendations_csv(recommendations, filename):
